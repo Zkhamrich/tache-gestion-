@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CalendarEvent, EventNote, EventType } from '@/types/user';
 import { useUser } from './UserContext';
+import { format } from 'date-fns';
 
 interface CalendarContextType {
   events: CalendarEvent[];
@@ -11,6 +12,8 @@ interface CalendarContextType {
   getEventsByDate: (date: string) => CalendarEvent[];
   getEventsByMonth: (year: number, month: number) => CalendarEvent[];
   filterEventsByType: (type: EventType | null) => CalendarEvent[];
+  createEventFromTimeSlot: (startTime: string, endTime: string, date: Date, title?: string) => void;
+  checkTimeSlotConflict: (startDateTime: string, endDateTime: string, excludeEventId?: number) => boolean;
 }
 
 const CalendarContext = createContext<CalendarContextType | undefined>(undefined);
@@ -152,6 +155,44 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     return events.filter(event => event.eventType === type);
   };
 
+  const createEventFromTimeSlot = (startTime: string, endTime: string, date: Date, title = 'Nouveau rendez-vous') => {
+    if (!user) return;
+    
+    const startDateTime = new Date(date);
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    startDateTime.setHours(startHour, startMinute, 0, 0);
+    
+    const endDateTime = new Date(date);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    endDateTime.setHours(endHour, endMinute, 0, 0);
+    
+    const newEvent: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'> = {
+      title,
+      eventType: 'rendez-vous',
+      startDateTime: startDateTime.toISOString(),
+      endDateTime: endDateTime.toISOString(),
+      status: 'scheduled',
+      governorId: 1, // Default governor ID
+      createdBy: user.id
+    };
+    
+    addEvent(newEvent);
+  };
+
+  const checkTimeSlotConflict = (startDateTime: string, endDateTime: string, excludeEventId?: number) => {
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+    
+    return events.some(event => {
+      if (excludeEventId && event.id === excludeEventId) return false;
+      
+      const eventStart = new Date(event.startDateTime);
+      const eventEnd = new Date(event.endDateTime);
+      
+      return start < eventEnd && end > eventStart;
+    });
+  };
+
   const value = {
     events,
     addEvent,
@@ -160,7 +201,9 @@ export function CalendarProvider({ children }: { children: React.ReactNode }) {
     addEventNote,
     getEventsByDate,
     getEventsByMonth,
-    filterEventsByType
+    filterEventsByType,
+    createEventFromTimeSlot,
+    checkTimeSlotConflict
   };
 
   return (

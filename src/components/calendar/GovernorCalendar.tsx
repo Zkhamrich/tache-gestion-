@@ -5,11 +5,13 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import { CalendarEvent } from '@/types/calendar';
+import { CalendarEvent } from '@/types/user';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, List, Clock, Grid, Download } from 'lucide-react';
+import { CalendarGrid } from './CalendarGrid';
+import { ConflictDetector, useConflictDetection } from './ConflictDetector';
 import { exportCalendarToPdf } from '@/utils/calendarPdfExport';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,7 +36,11 @@ export function GovernorCalendar({
 }: GovernorCalendarProps) {
   const [currentView, setCurrentView] = useState('dayGridMonth');
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
+  
+  // Détection des conflits
+  const { hasConflicts, conflictCount } = useConflictDetection(events);
 
   // Memoized calendar events transformation
   const calendarEvents = React.useMemo(() => 
@@ -87,7 +93,8 @@ export function GovernorCalendar({
     { key: 'dayGridMonth', label: 'Mois', icon: Calendar },
     { key: 'timeGridWeek', label: 'Semaine', icon: Grid },
     { key: 'timeGridDay', label: 'Jour', icon: Clock },
-    { key: 'listWeek', label: 'Liste', icon: List }
+    { key: 'listWeek', label: 'Liste', icon: List },
+    { key: 'advanced', label: 'Avancé', icon: Grid }
   ];
 
   return (
@@ -97,6 +104,11 @@ export function GovernorCalendar({
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Calendrier du Gouverneur
+            {hasConflicts && (
+              <Badge variant="destructive" className="text-xs">
+                {conflictCount} conflit{conflictCount > 1 ? 's' : ''}
+              </Badge>
+            )}
           </CardTitle>
           
           <div className="flex items-center gap-2 flex-wrap">
@@ -135,9 +147,14 @@ export function GovernorCalendar({
         </div>
       </CardHeader>
       
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Détecteur de conflits */}
+        {hasConflicts && (
+          <ConflictDetector events={events} />
+        )}
+
         {/* Legend */}
-        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Légende des types d'événements">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Légende des types d'événements">
           {Object.entries(eventTypeColors).map(([type, color]) => (
             <Badge key={type} variant="outline" className="flex items-center gap-2">
               <div 
@@ -150,59 +167,68 @@ export function GovernorCalendar({
           ))}
         </div>
 
-        {/* FullCalendar */}
-        <div className="fullcalendar-container" role="application" aria-label="Calendrier des événements">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: ''
-            }}
-            initialView={currentView}
-            events={calendarEvents}
-            editable={false}
-            selectable={false}
-            selectMirror={false}
-            dayMaxEvents={true}
-            weekends={true}
-            eventClick={handleEventClick}
-            height="auto"
-            aspectRatio={1.8}
-            locale="fr"
-            buttonText={{
-              today: 'Aujourd\'hui',
-              month: 'Mois',
-              week: 'Semaine',
-              day: 'Jour',
-              list: 'Liste'
-            }}
-            slotLabelFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }}
-            eventTimeFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }}
-            allDayText="Toute la journée"
-            noEventsText="Aucun événement"
-            moreLinkText="plus"
-            listDayFormat={{ 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long' 
-            }}
-            eventDidMount={(info) => {
-              // Add accessibility attributes
-              info.el.setAttribute('role', 'button');
-              info.el.setAttribute('aria-label', `Événement: ${info.event.title}`);
-              info.el.setAttribute('tabindex', '0');
-            }}
+        {/* Calendar Views */}
+        {currentView === 'advanced' ? (
+          <CalendarGrid
+            events={events}
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+            onEventClick={onEventClick}
           />
-        </div>
+        ) : (
+          <div className="fullcalendar-container" role="application" aria-label="Calendrier des événements">
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: ''
+              }}
+              initialView={currentView}
+              events={calendarEvents}
+              editable={false}
+              selectable={false}
+              selectMirror={false}
+              dayMaxEvents={true}
+              weekends={true}
+              eventClick={handleEventClick}
+              height="auto"
+              aspectRatio={1.8}
+              locale="fr"
+              buttonText={{
+                today: 'Aujourd\'hui',
+                month: 'Mois',
+                week: 'Semaine',
+                day: 'Jour',
+                list: 'Liste'
+              }}
+              slotLabelFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }}
+              eventTimeFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }}
+              allDayText="Toute la journée"
+              noEventsText="Aucun événement"
+              moreLinkText="plus"
+              listDayFormat={{ 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long' 
+              }}
+              eventDidMount={(info) => {
+                // Add accessibility attributes
+                info.el.setAttribute('role', 'button');
+                info.el.setAttribute('aria-label', `Événement: ${info.event.title}`);
+                info.el.setAttribute('tabindex', '0');
+              }}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

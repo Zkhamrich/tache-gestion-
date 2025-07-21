@@ -21,7 +21,7 @@ import { fr } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CalendarManagement() {
-  const { events, addEvent, updateEvent, deleteEvent, addEventNote, filterEventsByType } = useCalendar();
+  const { events, addEvent, updateEvent, deleteEvent, addEventNote, filterEventsByType, createEventFromTimeSlot } = useCalendar();
   const { user } = useUser();
   const { toast } = useToast();
   
@@ -98,6 +98,23 @@ export default function CalendarManagement() {
   const handleEventClick = (event: CalendarEvent) => {
     setSelectedEvent(event);
     setShowEventDialog(true);
+  };
+
+  const handleCreateEventFromTimeSlot = (startTime: string, endTime: string, date: Date) => {
+    createEventFromTimeSlot(startTime, endTime, date);
+    toast({
+      title: "Rendez-vous créé",
+      description: "Un nouveau rendez-vous a été créé avec succès.",
+    });
+  };
+
+  const handleResolveConflict = (event1: CalendarEvent, event2: CalendarEvent) => {
+    setEditingEvent(event1);
+    setShowEventForm(true);
+    toast({
+      title: "Résolution de conflit",
+      description: "Modifiez l'un des événements pour résoudre le conflit.",
+    });
   };
 
   const handleAddNote = (eventId: number) => {
@@ -219,6 +236,8 @@ export default function CalendarManagement() {
           onEventClick={handleEventClick}
           onEventDrop={handleEventDrop}
           onCreateEvent={handleCreateEvent}
+          onCreateEventFromTimeSlot={handleCreateEventFromTimeSlot}
+          onResolveConflict={handleResolveConflict}
         />
 
         {/* Today's Events */}

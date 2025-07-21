@@ -5,11 +5,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import { CalendarEvent } from '@/types/calendar';
+import { CalendarEvent } from '@/types/user';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, List, Clock, Grid, Plus } from 'lucide-react';
+import { CalendarGrid } from './CalendarGrid';
 
 interface SecretaryCalendarProps {
   events: CalendarEvent[];
@@ -17,6 +18,8 @@ interface SecretaryCalendarProps {
   onDateClick?: (date: Date) => void;
   onEventDrop?: (eventId: number, newDate: Date) => void;
   onCreateEvent?: () => void;
+  onCreateEventFromTimeSlot?: (startTime: string, endTime: string, date: Date) => void;
+  onResolveConflict?: (event1: CalendarEvent, event2: CalendarEvent) => void;
   className?: string;
 }
 
@@ -34,9 +37,12 @@ export function SecretaryCalendar({
   onDateClick, 
   onEventDrop,
   onCreateEvent,
+  onCreateEventFromTimeSlot,
+  onResolveConflict,
   className 
 }: SecretaryCalendarProps) {
   const [currentView, setCurrentView] = useState('dayGridMonth');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   // Memoized calendar events transformation
   const calendarEvents = React.useMemo(() => 
@@ -81,7 +87,8 @@ export function SecretaryCalendar({
     { key: 'dayGridMonth', label: 'Mois', icon: Calendar },
     { key: 'timeGridWeek', label: 'Semaine', icon: Grid },
     { key: 'timeGridDay', label: 'Jour', icon: Clock },
-    { key: 'listWeek', label: 'Liste', icon: List }
+    { key: 'listWeek', label: 'Liste', icon: List },
+    { key: 'advanced', label: 'Avancé', icon: Grid }
   ];
 
   return (
@@ -143,61 +150,72 @@ export function SecretaryCalendar({
           ))}
         </div>
 
-        {/* FullCalendar */}
-        <div className="fullcalendar-container" role="application" aria-label="Calendrier des événements éditable">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: ''
-            }}
-            initialView={currentView}
-            events={calendarEvents}
-            editable={true}
-            selectable={true}
-            selectMirror={true}
-            dayMaxEvents={true}
-            weekends={true}
-            eventClick={handleEventClick}
-            dateClick={handleDateClick}
-            eventDrop={handleEventDrop}
-            height="auto"
-            aspectRatio={1.8}
-            locale="fr"
-            buttonText={{
-              today: 'Aujourd\'hui',
-              month: 'Mois',
-              week: 'Semaine',
-              day: 'Jour',
-              list: 'Liste'
-            }}
-            slotLabelFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }}
-            eventTimeFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }}
-            allDayText="Toute la journée"
-            noEventsText="Aucun événement"
-            moreLinkText="plus"
-            listDayFormat={{ 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long' 
-            }}
-            eventDidMount={(info) => {
-              // Add accessibility attributes
-              info.el.setAttribute('role', 'button');
-              info.el.setAttribute('aria-label', `Événement: ${info.event.title}. Cliquez pour modifier.`);
-              info.el.setAttribute('tabindex', '0');
-            }}
+        {/* Calendar Views */}
+        {currentView === 'advanced' ? (
+          <CalendarGrid
+            events={events}
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+            onEventClick={onEventClick}
+            onCreateEvent={onCreateEventFromTimeSlot}
+            onResolveConflict={onResolveConflict}
           />
-        </div>
+        ) : (
+          <div className="fullcalendar-container" role="application" aria-label="Calendrier des événements éditable">
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: ''
+              }}
+              initialView={currentView}
+              events={calendarEvents}
+              editable={true}
+              selectable={true}
+              selectMirror={true}
+              dayMaxEvents={true}
+              weekends={true}
+              eventClick={handleEventClick}
+              dateClick={handleDateClick}
+              eventDrop={handleEventDrop}
+              height="auto"
+              aspectRatio={1.8}
+              locale="fr"
+              buttonText={{
+                today: 'Aujourd\'hui',
+                month: 'Mois',
+                week: 'Semaine',
+                day: 'Jour',
+                list: 'Liste'
+              }}
+              slotLabelFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }}
+              eventTimeFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }}
+              allDayText="Toute la journée"
+              noEventsText="Aucun événement"
+              moreLinkText="plus"
+              listDayFormat={{ 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long' 
+              }}
+              eventDidMount={(info) => {
+                // Add accessibility attributes
+                info.el.setAttribute('role', 'button');
+                info.el.setAttribute('aria-label', `Événement: ${info.event.title}. Cliquez pour modifier.`);
+                info.el.setAttribute('tabindex', '0');
+              }}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
